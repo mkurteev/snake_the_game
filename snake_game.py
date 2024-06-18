@@ -5,7 +5,7 @@ import random
 PREFER_GAME_FIELD_WIDTH = 1200
 PREFER_GAME_FIELD_HEIGHT = 600
 START_SPEED = [250, 230, 210, 190, 170]
-STEPS_FOR_ONE_SQUARE = 10
+STEPS_FOR_ONE_SQUARE = 8
 THINGS_SIZE = 30    # need to be equals to BRICK_SPACE + BRICK_WIDTH
 EYE_SIZE = THINGS_SIZE / 5
 TONGUE_SIZE = THINGS_SIZE / 5
@@ -79,6 +79,7 @@ class Game:
         self.canvas.bind('<d>', lambda event: self.snake.change_direction('right'))
         self.canvas.bind('<space>', lambda event: self.pause())
         self.canvas.focus_set()
+        self.canvas.update() 
 
         self.prepare_game()
 
@@ -96,15 +97,13 @@ class Game:
         self.food.reset(self.snake)
         self.poison.reset(self.snake, self.food)
         self.poison.hide()
-
+        print(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2)
         self.title_text_object = self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2, \
                                                              font=('consolas',40), text=f'Уровень {self.level} - готов? (пробел)', fill='red', tag='title_text')
         self.step()
 
     def step(self):
-        print(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2)
         self.snake.update_squares_directions()
-        print(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2)
         if not self.snake.check_collisions():
             if self.game_status == 'active':
                 self.snake.move_squares()
@@ -346,6 +345,7 @@ class Snake:
             current_direction = self.body_parts_directions[i]
             dx = 0
             dy = 0
+            throughPortal = True
             if current_direction == 'left':
                 dx = - ONE_STEP
             elif current_direction == 'down':
@@ -364,24 +364,22 @@ class Snake:
                 self.canvas.delete(part)
                 self.body_parts_coords[i][0] = new_x = (GAME_NUM_OF_SQUARES_X) * THINGS_SIZE
                 self.body_parts_coords[i][1] = new_y = int(GAME_NUM_OF_SQUARES_Y / 3) * THINGS_SIZE
-                self.body_parts[i] = self.canvas.create_rectangle(TLGC + new_x, TLGC + new_y, TLGC + new_x + THINGS_SIZE, TLGC + new_y + THINGS_SIZE, \
-                                                        fill=SNAKE_COLOR, tag="snake")
             elif new_x >= (GAME_NUM_OF_SQUARES_X) * THINGS_SIZE and new_y == int(GAME_NUM_OF_SQUARES_Y / 3) * THINGS_SIZE:
                 self.canvas.delete(part)
                 self.body_parts_coords[i][0] = new_x = -THINGS_SIZE
                 self.body_parts_coords[i][1] = new_y = int(GAME_NUM_OF_SQUARES_Y / 3 * 2) * THINGS_SIZE
-                self.body_parts[i] = self.canvas.create_rectangle(TLGC + new_x, TLGC + new_y, TLGC + new_x + THINGS_SIZE, TLGC + new_y + THINGS_SIZE, \
-                                                        fill=SNAKE_COLOR, tag="snake")
             elif new_y <= -THINGS_SIZE and new_x == int(GAME_NUM_OF_SQUARES_X / 3) * THINGS_SIZE:
                 self.canvas.delete(part)
                 self.body_parts_coords[i][0] = new_x = int(GAME_NUM_OF_SQUARES_X / 3 * 2) * THINGS_SIZE
                 self.body_parts_coords[i][1] = new_y = (GAME_NUM_OF_SQUARES_Y) * THINGS_SIZE
-                self.body_parts[i] = self.canvas.create_rectangle(TLGC + new_x, TLGC + new_y, TLGC + new_x + THINGS_SIZE, TLGC + new_y + THINGS_SIZE, \
-                                                        fill=SNAKE_COLOR, tag="snake")
             elif new_y >= (GAME_NUM_OF_SQUARES_Y) * THINGS_SIZE and new_x == int(GAME_NUM_OF_SQUARES_X / 3 * 2) * THINGS_SIZE:
                 self.canvas.delete(part)
                 self.body_parts_coords[i][0] = new_x = int(GAME_NUM_OF_SQUARES_X / 3) * THINGS_SIZE
                 self.body_parts_coords[i][1] = new_y = -THINGS_SIZE
+            else:
+                throughPortal = False
+
+            if throughPortal:
                 self.body_parts[i] = self.canvas.create_rectangle(TLGC + new_x, TLGC + new_y, TLGC + new_x + THINGS_SIZE, TLGC + new_y + THINGS_SIZE, \
                                                         fill=SNAKE_COLOR, tag="snake")
             else:
