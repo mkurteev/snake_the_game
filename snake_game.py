@@ -4,7 +4,7 @@ import random
 # === Settings
 PREFER_GAME_FIELD_WIDTH = 1200
 PREFER_GAME_FIELD_HEIGHT = 600
-START_SPEED = [250, 230, 210, 190, 170]
+START_SPEED = [250, 200, 170, 135, 100]
 STEPS_FOR_ONE_SQUARE = 8
 THINGS_SIZE = 30    # need to be equals to BRICK_SPACE + BRICK_WIDTH
 EYE_SIZE = THINGS_SIZE / 5
@@ -84,20 +84,18 @@ class Game:
         self.prepare_game()
 
     def prepare_game(self):
-        self.score = 0
-        self.level = 1
+        self.level_food_eaten = 0
 
         self.start()
 
     def start(self):
-        self.game_status = 'pause' # inactive/active/pause
+        self.game_status = 'pause' # inactive/active/pause/wins
         self.game_speed = START_SPEED[self.level - 1]
 
         self.snake.reset()
         self.food.reset(self.snake)
         self.poison.reset(self.snake, self.food)
         self.poison.hide()
-        print(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2)
         self.title_text_object = self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2, \
                                                              font=('consolas',40), text=f'Уровень {self.level} - готов? (пробел)', fill='red', tag='title_text')
         self.step()
@@ -109,6 +107,8 @@ class Game:
                 self.snake.move_squares()
 
                 if self.snake.check_eat(self.food):
+                    self.score_up(1 * self.level)
+                    self.label_update()
                     self.food.reset(self.snake)
                     # if random.randint(0, 9) == 0:
                     if True:
@@ -116,12 +116,14 @@ class Game:
                         window.after(int(1.5 * (START_SPEED[0] / STEPS_FOR_ONE_SQUARE)), self.poison.start_blinking)
                     else:
                         self.poison.hide()
+                    if self.level_food_eaten > 1:
+                        self.level_up()
                     self.snake.grow_up(1)
                 if self.snake.check_eat(self.poison):
-                    self.game_over('Отравился')
+                    self.game_over('Отравился ☠')
                 window.after(int(self.game_speed / STEPS_FOR_ONE_SQUARE), self.step)
         else:
-            self.game_over('Врезался')
+            self.game_over('Врезался ♲')
 
     def pause(self):
         if self.game_status == 'pause':
@@ -132,11 +134,13 @@ class Game:
             self.game_status = 'pause'
             self.canvas.delete('title_text')
             self.title_text_object = self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2, \
-                                                             font=('consolas',40), text='Пауза', fill='red', tag='title_text')
+                                                             font=('consolas',40), text='Пауза ⌛', fill='red', tag='title_text')
         elif self.game_status == 'inactive':
             self.game_status = 'active'
             self.canvas.delete('title_text')
             self.prepare_game()
+        elif self.game_status == 'win':
+            pass
 
     def game_over(self, reason):
         self.game_status = 'inactive'
@@ -144,18 +148,29 @@ class Game:
         self.title_text_object = self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2, \
                                                          font=('consolas',40), text=reason + ' - конец игры', fill='red', tag='title_text')
         self.canvas.itemconfigure(self.snake.body_parts[0],fill=SNAKE_CRASH_COLOR)
+    
+    def win(self):
+        self.game_status = 'inactive'
+        self.canvas.delete('title_text')
 
-    def score_up(self):
-        pass
+        if self.level > 5:
+            self.game_status = 'win'
+            self.food.hide()
+            self.poison.hide()
+            self.title_text_object = self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2, \
+                                                         font=('consolas',40), text='*ੈ✩‧₊˚༺ Победа ༻˚₊‧✩ੈ*', fill='red', tag='title_text')           
+
+    def score_up(self, num_of_scores):
+        self.score += num_of_scores
+        self.level_food_eaten += 1
 
     def level_up(self):
-        pass
+        self.level += 1
+        self.win()
+        self.prepare_game()
 
     def label_update(self):
-        pass
-
-
-
+        self.label.config(text = f'Очки: {self.score} - Уровень {self.level}')
 
     def draw_outside_wall(self):
         # top
@@ -219,7 +234,38 @@ class Game:
                     self.canvas.create_rectangle(TLGC + (i + 1) * THINGS_SIZE, TLGC + j * THINGS_SIZE, \
                                             TLGC + (i + 2) * THINGS_SIZE, TLGC + (j + 1) * THINGS_SIZE, \
                                             fill=BACKGROUND_COLOR, width=0, tag='outside_wall')
+        self.draw_inside_wall(5)
 
+    def draw_inside_wall(self, perc):
+        # pass
+
+        for i in range(1, ((GAME_NUM_OF_SQUARES_X - 1) * (GAME_NUM_OF_SQUARES_Y - 1) * perc) // 100, 1):
+            x = random.randint(0, GAME_NUM_OF_SQUARES_X - 1) * THINGS_SIZE
+            y = random.randint(0, GAME_NUM_OF_SQUARES_Y - 1) * THINGS_SIZE
+            self.draw_inside_brick(TLGC + x, TLGC + y)
+
+
+    def draw_inside_brick(self, x, y):
+        if x == TLGC:
+            right_padding = 2
+        else:
+            right_padding = 0
+
+        if x == (THINGS_SIZE * (GAME_NUM_OF_SQUARES_X - 1) + TLGC):
+            left_padding = -1
+        else:
+            left_padding = 0
+
+        y += 2
+        
+        self.canvas.create_rectangle(x + 2, y, x + 2 + BRICK_WIDTH, y + BRICK_HEIGHT, fill=BRICK_COLOR, width=0, tag='inside_wall')
+        self.canvas.create_rectangle(x + 2, y, x + 2 + BRICK_WIDTH, y + BRICK_SPACE, fill=BRICK_EDGE_COLOR, width=0, tag='inside_wall')
+
+        y += BRICK_SPACE + BRICK_HEIGHT
+        
+        self.canvas.create_rectangle(x + right_padding, y, x + BRICK_WIDTH + BRICK_SPACE + left_padding, y + BRICK_HEIGHT, fill=BRICK_COLOR, width=0, tag='inside_wall')
+        self.canvas.create_rectangle(x + right_padding, y, x + BRICK_WIDTH + BRICK_SPACE + left_padding, y + BRICK_SPACE, fill=BRICK_EDGE_COLOR, width=0, tag='inside_wall')
+        self.canvas.create_rectangle(x + BRICK_WIDTH/2, y, x + BRICK_WIDTH/2 + BRICK_SPACE, y + BRICK_HEIGHT, fill=BACKGROUND_COLOR, width=0, tag='inside_wall')         
 
 class Snake:
     def __init__(self, canvas):
@@ -257,7 +303,6 @@ class Snake:
                 self.body_parts[i] = self.canvas.create_rectangle(TLGC + x, TLGC + y, TLGC + x + THINGS_SIZE, TLGC + y + THINGS_SIZE, \
                                                             fill=SNAKE_COLOR, tag="snake")
 
-
         self.canvas.tag_lower(self.body_parts[-1])
 
         for i in range(0, 5):
@@ -283,7 +328,6 @@ class Snake:
                 self.direction = new_direction
         # else:
         #     self.direction = current_direction
-
 
     def update_squares_directions(self):
         for i, coords in reversed(list(enumerate(self.body_parts_coords))):
@@ -355,6 +399,12 @@ class Snake:
             elif current_direction == 'up':
                 dy = - ONE_STEP
 
+            if i == 0:
+                bodyFillColor = SNAKE_HEAD_COLOR
+            else:
+                bodyFillColor = SNAKE_COLOR
+
+
             self.body_parts_coords[i][0] += dx
             new_x = self.body_parts_coords[i][0]
             self.body_parts_coords[i][1] += dy
@@ -381,7 +431,7 @@ class Snake:
 
             if throughPortal:
                 self.body_parts[i] = self.canvas.create_rectangle(TLGC + new_x, TLGC + new_y, TLGC + new_x + THINGS_SIZE, TLGC + new_y + THINGS_SIZE, \
-                                                        fill=SNAKE_COLOR, tag="snake")
+                                                        fill=bodyFillColor, tag="snake")
             else:
                 self.canvas.move(part, dx, dy)
 
@@ -497,6 +547,10 @@ class Food:
             if check_x == snake_part_x and check_y == snake_part_y:
                 return True
         return False
+    
+    def hide(self):
+        self.canvas.delete('food')
+        self.coords = [- THINGS_SIZE, - THINGS_SIZE]
 
 class Poison:
     def __init__(self, canvas):
